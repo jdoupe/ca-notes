@@ -1,168 +1,248 @@
-OpenSSL
-https://jamielinux.com/docs/openssl-certificate-authority/
+#References
+#----------
+#OpenSSL
+#https://jamielinux.com/docs/openssl-certificate-authority/
 
-Vault
-http://cuddletech.com/?p=959
-http://marsdominion.com/2016/10/26/using-vault-as-a-certificate-authority/
-https://blog.kintoandar.com/2015/11/vault-PKI-made-easy.html
-https://www.vaultproject.io/docs/index.html
+#Vault
+#http://cuddletech.com/?p=959
+#http://marsdominion.com/2016/10/26/using-vault-as-a-certificate-authority/
+#https://blog.kintoandar.com/2015/11/vault-PKI-made-easy.html
+#https://www.vaultproject.io/docs/index.html
 
-Create root pair
-----------------
-mkdir -p root/ca/certs root/ca/crl root/ca/newcerts root/ca/private
-chmod 700 root/ca/private
-touch root/ca/index.txt
-echo 1000 > root/ca/serial
+#Create root pair
+#----------------
+mkdir -p root/certs root/crl root/newcerts root/private
+chmod 700 root/private
+touch root/index.txt
+echo 1000 > root/serial
 
-# Debating whether to document contents of openssl.cnf (root & intermediate), 
-# and leave it at that, or put the necessary configuration on the command 
-# lines, and let the reader move to a file if desired.
+#Create root key
+#---------------
 
-cp openssl-root.cnf root/ca/openssl.cnf
+openssl genrsa -aes256 -out root/private/ca.key.pem 4096
+chmod 400 root/private/ca.key.pem
 
-Create root key
----------------
+#Create root certificate
+#-----------------------
 
-openssl genrsa -aes256 -out root/ca/private/ca.key.pem 4096
-chmod 400 root/ca/private/ca.key.pem
-
-Create root certificate
------------------------
-
-openssl req -config root/ca/openssl.cnf \
-  -key root/ca/private/ca.key.pem \
+openssl req \
+  -key root/private/ca.key.pem \
   -new -x509 -days 7300 -sha256 -extensions v3_ca \
-  -out root/ca/certs/ca.cert.pem
+  -out root/certs/ca.cert.pem \
+  -subj "/C=US/ST=Texas/O=Test Org/CN=Test Org Root CA" \
+  -config <(printf "
+    [ req ]
+    default_bits = 2048
+    string_mask = utf8only
+    distinguished_name  = req_distinguished_name
+    x509_extensions = v3_ca
 
-chmod 444 root/ca/certs/ca.cert.pem
+    [ req_distinguished_name ]
 
-Verify root certificate
------------------------
+    [ v3_ca ]
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid:always,issuer
+    basicConstraints = critical, CA:true
+    keyUsage = critical, digitalSignature, cRLSign, keyCertSign")
 
-openssl x509 -noout -text -in root/ca/certs/ca.cert.pem
+chmod 444 root/certs/ca.cert.pem
 
-Create intermediate pair
-------------------------
+#Verify root certificate
+#-----------------------
 
-mkdir -p root/ca/intermediate/certs root/ca/intermediate/crl root/ca/intermediate/csr root/ca/intermediate/newcerts root/ca/intermediate/private
-chmod 700 root/ca/intermediate/private
-touch root/ca/intermediate/index.txt
-echo 1000 > root/ca/intermediate/serial
+openssl x509 -noout -text -in root/certs/ca.cert.pem
 
-echo 1000 > root/ca/intermediate/crlnumber
+#Create intermediate pair
+#------------------------
 
-cp openssl-intermediate.cnf root/ca/intermediate/openssl.cnf
+mkdir -p intermediate/certs intermediate/crl intermediate/csr intermediate/newcerts intermediate/private
+chmod 700 intermediate/private
+touch intermediate/index.txt
+echo 1000 > intermediate/serial
 
-Create intermediate key
------------------------
+echo 1000 > intermediate/crlnumber
 
-openssl genrsa -aes256 -out root/ca/intermediate/private/intermediate.key.pem 4096
+#Create intermediate key
+#-----------------------
 
-chmod 400 root/ca/intermediate/private/intermediate.key.pem
+openssl genrsa -aes256 -out intermediate/private/intermediate.key.pem 4096
 
-Create intermediate certificate
--------------------------------
+chmod 400 intermediate/private/intermediate.key.pem
 
-openssl req -config root/ca/intermediate/openssl.cnf -new -sha256 \
-  -key root/ca/intermediate/private/intermediate.key.pem \
-  -out root/ca/intermediate/csr/intermediate.csr.pem
+#Create intermediate certificate
+#-------------------------------
 
-openssl ca -config root/ca/openssl.cnf -extensions v3_intermediate_ca \
+openssl req -new -sha256 \
+  -key intermediate/private/intermediate.key.pem \
+  -out intermediate/csr/intermediate.csr.pem \
+  -subj "/C=US/ST=Texas/O=Test Org/CN=Test Org Intermediate CA" \
+  -config <(printf "
+    [ req ]
+    default_bits = 2048
+    string_mask = utf8only
+    distinguished_name  = req_distinguished_name
+    x509_extensions = v3_ca
+
+    [ req_distinguished_name ]
+
+    [ v3_ca ]
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid:always,issuer
+    basicConstraints = critical, CA:true
+    keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+  ")
+
+openssl ca -extensions v3_intermediate_ca \
   -days 3650 -notext -md sha256 \
-  -in root/ca/intermediate/csr/intermediate.csr.pem \
-  -out root/ca/intermediate/certs/intermediate.cert.pem
+  -in intermediate/csr/intermediate.csr.pem \
+  -out intermediate/certs/intermediate.cert.pem \
+  -config <(printf "
+    [ ca ]
+    default_ca = CA_default
 
-chmod 444 root/ca/intermediate/certs/intermediate.cert.pem
+    [ CA_default ]
+    dir               = root
+    certs             = root/certs
+    crl_dir           = root/crl
+    new_certs_dir     = root/newcerts
+    database          = root/index.txt
+    serial            = root/serial
+    RANDFILE          = root/private/.rand
 
+    private_key       = root/private/ca.key.pem
+    certificate       = root/certs/ca.cert.pem
 
-Edit Configuration
-------------------
+    crlnumber         = root/crlnumber
+    crl               = root/crl/ca.crl.pem
+    crl_extensions    = crl_ext
+    default_crl_days  = 30
 
-    #SSL certificates need a "Subject Alternative Name" field defined.  
-    #OpenSSL apparently does NOT allow you to specify this on the command 
-    #line, so we need to edit the configuration file to provide the correct 
-    #information.
+    name_opt          = ca_default
+    cert_opt          = ca_default
+    default_days      = 375
+    preserve          = no
+    policy            = policy_strict
 
-    #THIS IS NO LONGER NECESSARY - please see options below in the signing 
-    #section
+    [ policy_strict ]
+    countryName             = match
+    stateOrProvinceName     = match
+    organizationName        = match
+    organizationalUnitName  = optional
+    commonName              = supplied
+    emailAddress            = optional
 
-#    cd test-ca
-#    sed -i -e 's/^subjectAltName.*$/subjectAltName = DNS:www.example.com/' intermediate/openssl.cnf
+    [ crl_ext ]
+    authorityKeyIdentifier=keyid:always
 
-Create key
-----------
+    [ v3_intermediate_ca ]
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid:always,issuer
+    basicConstraints = critical, CA:true, pathlen:0
+    keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+  ")
 
-    openssl genrsa -out root/ca/intermediate/private/www.example.com.key.pem 2048
-    chmod 400 root/ca/intermediate/private/www.example.com.key.pem
+chmod 444 intermediate/certs/intermediate.cert.pem
 
-Create CSR
-----------
+#Create key
+#----------
 
-#    openssl req -config intermediate/openssl.cnf \
-#        -key intermediate/private/www.example.com.key.pem \
-#        -new -sha256 -out intermediate/csr/www.example.com.csr.pem
+    openssl genrsa -out intermediate/private/www.example.com.key.pem 2048
+    chmod 400 intermediate/private/www.example.com.key.pem
 
-#Put the environment in the Organizational Unit Name.  e.g. Production
-#Common name needs to match the hostname used.  e.g. www.example.com for the
-#above examples.
+#Create CSR
+#----------
 
-#    openssl req -new \
-#        -key intermediate/private/wildcard.service.os.key.pem \
-#        -reqexts SAN \
-#        -config <(cat intermediate/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:example.com,DNS:www.example.com")) \
-#        -subj "/C=US/ST=Texas/O=Test Org/OU=Development/CN=test.com" \
-#        -out test.csr
-
-    # Apparently don't need SAN info in CSR, in fact it is quite useless, 
-    # and/or dangerous if we actually accepted it from the CSR
-    # Subject (-subj) can be anything - doesn't necessarily need to have a 
-    # full DN, but it is handy for identification later
     openssl req -new \
-        -key root/ca/intermediate/private/www.example.com.key.pem \
+        -key intermediate/private/www.example.com.key.pem \
         -subj "/C=US/ST=Texas/O=Test Org/OU=Development/CN=www.example.com" \
-        -out root/ca/intermediate/csr/www.example.com.csr.pem
+        -out intermediate/csr/www.example.com.csr.pem \
+        -config <(printf "
+          [ req ]
+          default_bits = 2048
+          string_mask = utf8only
+          distinguished_name  = req_distinguished_name
 
-Sign CSR / Create Cert
-----------------------
+          [ req_distinguished_name ]
+        ")
 
-#    openssl ca -config root/ca/intermediate/openssl.cnf \
-#        -extensions server_cert -days 375 -notext -md sha256 \
-#        -in root/ca/intermediate/csr/www.example.com.csr.pem \
-#        -out root/ca/intermediate/certs/www.example.com.cert.pem
-#    chmod 444 root/ca/intermediate/certs/www.example.com.cert.pem
+#Sign CSR / Create Cert
+#----------------------
 
-# This signing procedure adds SAN info - be sure to update the 
-# subjectAltName as appropriate
     openssl ca \
-        -extensions SAN -days 375 -notext -md sha256 \
-        -config <(cat root/ca/intermediate/openssl.cnf <(printf "
-            [SAN]
-            basicConstraints=CA:FALSE
-            subjectKeyIdentifier=hash
-            authorityKeyIdentifier=keyid,issuer:always
-            keyUsage=critical,digitalSignature,keyEncipherment
-            extendedKeyUsage=serverAuth
-            subjectAltName=DNS:example.com,DNS:www.example.com \
-            ")) \
-        -in root/ca/intermediate/csr/www.example.com.csr.pem \
-        -out root/ca/intermediate/certs/www.example.com.cert.pem
-    chmod 444 root/ca/intermediate/certs/www.example.com.cert.pem
+        -extensions SAN \
+        -days 375 \
+        -notext \
+        -md sha256 \
+        -in intermediate/csr/www.example.com.csr.pem \
+        -out intermediate/certs/www.example.com.cert.pem \
+        -config <(printf "
+          [ ca ]
+          default_ca = CA_default
 
-Verify Cert (optional)
-----------------------
+          [ CA_default ]
+          dir               = intermediate
+          certs             = intermediate/certs
+          crl_dir           = intermediate/crl
+          new_certs_dir     = intermediate/newcerts
+          database          = intermediate/index.txt
+          serial            = intermediate/serial
+          RANDFILE          = intermediate/private/.rand
+
+          private_key       = intermediate/private/intermediate.key.pem
+          certificate       = intermediate/certs/intermediate.cert.pem
+
+          crlnumber         = intermediate/crlnumber
+          crl               = intermediate/crl/intermediate.crl.pem
+          crl_extensions    = crl_ext
+          default_crl_days  = 30
+
+          name_opt          = ca_default
+          cert_opt          = ca_default
+          default_days      = 375
+          preserve          = no
+          policy            = policy_loose
+
+          [ policy_loose ]
+          countryName             = optional
+          stateOrProvinceName     = optional
+          localityName            = optional
+          organizationName        = optional
+          organizationalUnitName  = optional
+          commonName              = supplied
+          emailAddress            = optional
+
+          [ crl_ext ]
+          authorityKeyIdentifier=keyid:always
+
+          [SAN]
+          basicConstraints=CA:FALSE
+          subjectKeyIdentifier=hash
+          authorityKeyIdentifier=keyid,issuer:always
+          keyUsage=critical,digitalSignature,keyEncipherment
+          extendedKeyUsage=serverAuth
+          subjectAltName=DNS:example.com,DNS:www.example.com
+        ") 
+
+    chmod 444 intermediate/certs/www.example.com.cert.pem
+
+#Verify Cert (optional)
+#----------------------
 
     openssl x509 -noout -text \
-        -in root/ca/intermediate/certs/www.example.com.cert.pem
+        -in intermediate/certs/www.example.com.cert.pem
 
-    openssl verify -CAfile root/ca/intermediate/certs/ca-chain.cert.pem \
-        root/ca/intermediate/certs/www.example.com.cert.pem
+    # Create CA chain
+    cat intermediate/certs/intermediate.cert.pem root/certs/ca.cert.pem > intermediate/certs/ca-chain.cert.pem
 
-Revoke Cert
------------
+    openssl verify -CAfile intermediate/certs/ca-chain.cert.pem \
+        intermediate/certs/www.example.com.cert.pem
+
+#Revoke Cert
+#-----------
 
     # You won't be able to re-issue a cert with the same DN unless you 
     # revoke the previous one
-    openssl ca -config root/ca/intermediate/openssl.cnf \
-        -revoke root/ca/intermediate/certs/www.example.com.cert.pem
+#    openssl ca -config intermediate/openssl.cnf \
+#        -revoke intermediate/certs/www.example.com.cert.pem
 
 

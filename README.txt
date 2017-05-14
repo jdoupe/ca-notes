@@ -11,6 +11,8 @@
 
 #Create root pair
 #----------------
+
+# Set up directory structure and pertinent files
 mkdir -p root/certs root/crl root/newcerts root/private
 chmod 700 root/private
 touch root/index.txt
@@ -24,6 +26,11 @@ chmod 400 root/private/ca.key.pem
 
 #Create root certificate
 #-----------------------
+# The below command creates a self-signed cert (-x509 parameter)
+# The need for a "distinguished_name" option is apparently a bug that
+# no one cares to fix.  (Note the empty section).
+# There isn't a way (that I have found) to specify x509_extensions from
+# the command line.
 
 openssl req \
   -key root/private/ca.key.pem \
@@ -41,7 +48,8 @@ openssl req \
     subjectKeyIdentifier = hash
     authorityKeyIdentifier = keyid:always,issuer
     basicConstraints = critical, CA:true
-    keyUsage = critical, digitalSignature, cRLSign, keyCertSign")
+    keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+  ")
 
 chmod 444 root/certs/ca.cert.pem
 
@@ -53,22 +61,27 @@ openssl x509 -noout -text -in root/certs/ca.cert.pem
 #Create intermediate pair
 #------------------------
 
+# Set up directory structure and pertinent files
 mkdir -p intermediate/certs intermediate/crl intermediate/csr intermediate/newcerts intermediate/private
 chmod 700 intermediate/private
 touch intermediate/index.txt
 echo 1000 > intermediate/serial
-
 echo 1000 > intermediate/crlnumber
 
 #Create intermediate key
 #-----------------------
 
 openssl genrsa -aes256 -out intermediate/private/intermediate.key.pem 4096
-
 chmod 400 intermediate/private/intermediate.key.pem
 
 #Create intermediate certificate
 #-------------------------------
+# Note the config section is exactly the same as for the root certificate, however
+# the command lacks the -x509 option.  This creates a CSR which then needs to be
+# signed by the root certificate (a la the "ca" command following).
+
+# The config for the "ca" command is a bit larger, and defines file locations
+# for the root CA.
 
 openssl req -new -sha256 \
   -key intermediate/private/intermediate.key.pem \
@@ -76,8 +89,6 @@ openssl req -new -sha256 \
   -subj "/C=US/ST=Texas/O=Test Org/CN=Test Org Intermediate CA" \
   -config <(printf "
     [ req ]
-    default_bits = 2048
-    string_mask = utf8only
     distinguished_name  = req_distinguished_name
     x509_extensions = v3_ca
 
@@ -170,6 +181,13 @@ openssl x509 -noout -text -in intermediate/certs/intermediate.cert.pem
 
 #Sign CSR / Create Cert
 #----------------------
+# Note this config section specifies the file/path locations for the
+# intermediate CA which should be used to sign any issued certificates.
+# You'll also want to note that subjectAltName for the certificate is
+# defined in the [SAN] section.  Instead of having this huge config
+# specified on the command line, it may be worthwhile to move all but
+# [SAN] section to an actual file (intermediate-ca.cnf), and wrap the
+# printf with something like <(cat intermediate-ca.cnf <(printf ... ))
 
     openssl ca \
         -extensions SAN \
@@ -201,7 +219,6 @@ openssl x509 -noout -text -in intermediate/certs/intermediate.cert.pem
 
           name_opt          = ca_default
           cert_opt          = ca_default
-          default_days      = 375
           preserve          = no
           policy            = policy_loose
 
@@ -247,5 +264,4 @@ openssl x509 -noout -text -in intermediate/certs/intermediate.cert.pem
     # revoke the previous one
 #    openssl ca -config intermediate/openssl.cnf \
 #        -revoke intermediate/certs/www.example.com.cert.pem
-
 

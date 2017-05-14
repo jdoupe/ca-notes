@@ -172,7 +172,6 @@ openssl x509 -noout -text -in intermediate/certs/intermediate.cert.pem
         -out intermediate/csr/www.example.com.csr.pem \
         -config <(printf "
           [ req ]
-          default_bits = 2048
           string_mask = utf8only
           distinguished_name  = req_distinguished_name
 

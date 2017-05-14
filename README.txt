@@ -32,8 +32,6 @@ openssl req \
   -subj "/C=US/ST=Texas/O=Test Org/CN=Test Org Root CA" \
   -config <(printf "
     [ req ]
-    default_bits = 2048
-    string_mask = utf8only
     distinguished_name  = req_distinguished_name
     x509_extensions = v3_ca
 
@@ -142,6 +140,11 @@ openssl ca -extensions v3_intermediate_ca \
   ")
 
 chmod 444 intermediate/certs/intermediate.cert.pem
+
+#Verify intermediate certificate
+#-------------------------------
+
+openssl x509 -noout -text -in intermediate/certs/intermediate.cert.pem
 
 #Create key
 #----------

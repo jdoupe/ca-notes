@@ -3,7 +3,9 @@
 # This will make a key and cert with a 2048 bit key and signed for 375 days
 # First (and only) parameter should be fqdn for site to be protected
 
-    openssl genrsa -out intermediate/private/$1.key.pem 2048
+    #openssl genrsa -out intermediate/private/$1.key.pem 2048
+    openssl genpkey -algorithm RSA -aes256 -pkeyopt rsa_keygen_bits:2048 \
+      -out intermediate/private/$1.key.pem
     chmod 400 intermediate/private/$1.key.pem
 
     # Subject (-subj) can be anything - doesn't necessarily need to have a full DN, but it is handy for identification later

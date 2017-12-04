@@ -21,7 +21,9 @@ echo 1000 > root/serial
 #Create root key
 #---------------
 
-openssl genrsa -aes256 -out root/private/ca.key.pem 4096
+#openssl genrsa -aes256 -out root/private/ca.key.pem 4096
+openssl genpkey -algorithm RSA -aes256 -pkeyopt rsa_keygen_bits:4096 \
+  -out root/private/ca.key.pem
 chmod 400 root/private/ca.key.pem
 
 #Create root certificate
@@ -71,7 +73,9 @@ echo 1000 > intermediate/crlnumber
 #Create intermediate key
 #-----------------------
 
-openssl genrsa -aes256 -out intermediate/private/intermediate.key.pem 4096
+#openssl genrsa -aes256 -out intermediate/private/intermediate.key.pem 4096
+openssl genpkey -algorithm RSA -aes256 -pkeyopt rsa_keygen_bits:4096 \
+  -out intermediate/private/intermediate.key.pem
 chmod 400 intermediate/private/intermediate.key.pem
 
 #Create intermediate certificate
@@ -160,7 +164,9 @@ openssl x509 -noout -text -in intermediate/certs/intermediate.cert.pem
 #Create key
 #----------
 
-    openssl genrsa -out intermediate/private/www.example.com.key.pem 2048
+#    openssl genrsa -out intermediate/private/www.example.com.key.pem 2048
+openssl genpkey -algorithm RSA -aes256 -pkeyopt rsa_keygen_bits:2048 \
+  -out intermediate/private/www.example.com.key.pem
     chmod 400 intermediate/private/www.example.com.key.pem
 
 #Create CSR
@@ -243,6 +249,8 @@ openssl x509 -noout -text -in intermediate/certs/intermediate.cert.pem
         ") 
 
     chmod 444 intermediate/certs/www.example.com.cert.pem
+
+# Consider keyAgreement and nonRepudiation as keyUsage additions?
 
 #Verify Cert (optional)
 #----------------------

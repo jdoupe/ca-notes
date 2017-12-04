@@ -1,109 +1,123 @@
+
+VAULT=../vault
+ROOT_CA_PATH=myca
+ROOT_CA_CN='My Root CA'
+INTERMEDIATE_CA_PATH=myca_ops
+INTERMEDIATE_CA_CN='My CA Ops Intermediate CA'
+
 mkdir cavault
 cd cavault
 
-cat > vault.hcl <<HCL
-disable_mlock  = true
+#cat > vault.hcl <<HCL
+#disable_mlock  = true
+#
+#listener "tcp" {
+#  address = "0.0.0.0:8200"
+#  tls_disable = 1
+#}
+#
+#backend "file" {
+#  path = "/vagrant/cavault/secrets"
+#}
+#HCL
 
-listener "tcp" {
-  address = "0.0.0.0:8200"
-  tls_disable = 1
-}
+${VAULT} server -dev > vault-info.txt &
+# -dev creates an unsealed, in memory vault
+#${VAULT} server -config=vault.hcl
+#${VAULT} init -key-shares=1 -key-threshold=1
 
-backend "file" {
-  path = "/vagrant/cavault/secrets"
-}
-HCL
-
-../vault server -config=vault.hcl
-OR ../vault server -dev
-# -dev creates an unsealed vault
+${VAULT} auth
+#OR export VAULT_TOKEN=62fd6843-0156-fd86-e6fe-2b292f8c9270
 
 export VAULT_ADDR='http://127.0.0.1:8200'
 
-./vault init -key-shares=1 -key-threshold=1
-
-vault auth
-OR export VAULT_TOKEN=62fd6843-0156-fd86-e6fe-2b292f8c9270
-
+${VAULT} status
 curl -k -X GET ${VAULT_ADDR}/v1/sys/health
 
 #Create Root CA
 #Mount it
-./vault mount -path=myca -description='My Root CA' -max-lease-ttl=87600h pki
+${VAULT} mount -path=${ROOT_CA_PATH} -description="${ROOT_CA_CN}" -max-lease-ttl=87600h pki
 
-OR curl -k -X POST -H "x-Vault-Token: ${VAULT_TOKEN}" -d '{"type": "pki",   "description": "My Root CA", "config": { "max_lease_ttl":     "87600h"}}'  ${VAULT_ADDR}/v1/sys/mounts/myca
+#OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d '{"type": "pki",   "description": "${ROOT_CA_CN}", "config": { "max_lease_ttl":     "87600h"}}'  ${VAULT_ADDR}/v1/sys/mounts/${ROOT_CA_PATH}
 
 #Have a looksee
-./vault mounts
+${VAULT} mounts
 
-OR curl -k -X GET -H "x-Vault-Token: ${VAULT_TOKEN}" ${VAULT_ADDR}/v1/sys/mounts|jq .
+#OR curl -k -X GET -H "X-Vault-Token: ${VAULT_TOKEN}" ${VAULT_ADDR}/v1/sys/mounts|jq .
 
 #Create Root CA Cert
-vault write myca/root/generate/internal \
-> common_name="My Root CA" \
-> ttl=87600h \
-> key_bits=4096 \
-> exclude_cn_from_sans=true
+${VAULT} write ${ROOT_CA_PATH}/root/generate/internal \
+ common_name="${ROOT_CA_CN}" \
+ ttl=87600h \
+ key_bits=4096 \
+ exclude_cn_from_sans=true
 
-OR curl -k -X POST -H "x-Vault-Token: ${VAULT_TOKEN}" -d '{"common_name": "My Root CA", "ttl": "87600h", "key_bits": "4096", "exclude_cn_from_sans": "true"}' ${VAULT_ADDR}/v1/myca/root/generate/internal
+#OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d '{"common_name": "${ROOT_CA_CN}", "ttl": "87600h", "key_bits": "4096", "exclude_cn_from_sans": "true"}' ${VAULT_ADDR}/v1/${ROOT_CA_PATH}/root/generate/internal
 
 #Take a look
-curl -s http://localhost:8200/v1/myca/ca/pem | openssl x509 -text
+${VAULT} read ${ROOT_CA_PATH}/cert/ca
+#OR curl -s http://localhost:8200/v1/${ROOT_CA_PATH}/ca/pem | openssl x509 -text
+# Note the two different endpoints - cert/ca returns the cert in PEM format, ca/pem is SUPPOSED to, but the CLI doesn't do it right - I'm sure there's a nuanced reason for this.
 
-vault write myca/config/urls issuing_certificates="http://localhost:8200/v1/myca"
-OR curl -k -X POST -H "x-Vault-Token: ${VAULT_TOKEN}" -d '{ "issuing_certificates": "http://localhost:8200/v1/myca" }' ${VAULT_ADDR}/v1/myca/config/urls
+${VAULT} write ${ROOT_CA_PATH}/config/urls issuing_certificates="http://localhost:8200/v1/${ROOT_CA_PATH}"
+#OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d '{ "issuing_certificates": "http://localhost:8200/v1/${ROOT_CA_PATH}" }' ${VAULT_ADDR}/v1/${ROOT_CA_PATH}/config/urls
 
 #Create Intermediate CA
-vault mount -path=myca_ops -description="My CA Ops Intermediate CA" -max-lease-ttl=26280h pki
-OR curl -k -X POST -H "x-Vault-Token: ${VAULT_TOKEN}" -d '{"type": "pki",   "description": "My CA Ops Intermediate CA", "config": { "max_lease_ttl":     "26280h"}}'  ${VAULT_ADDR}/v1/sys/mounts/myca_ops
+${VAULT} mount -path=${INTERMEDIATE_CA_PATH} -description="${INTERMEDIATE_CA_CN}" -max-lease-ttl=26280h pki
+#OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d '{"type": "pki",   "description": "${INTERMEDIATE_CA_CN}", "config": { "max_lease_ttl":     "26280h"}}'  ${VAULT_ADDR}/v1/sys/mounts/${INTERMEDIATE_CA_PATH}
 
-./vault mounts
-OR curl -k -X GET -H "x-Vault-Token: ${VAULT_TOKEN}" ${VAULT_ADDR}/v1/sys/mounts|jq .
+${VAULT} mounts
+#OR curl -k -X GET -H "X-Vault-Token: ${VAULT_TOKEN}" ${VAULT_ADDR}/v1/sys/mounts|jq .
 
 # Generate CSR
-./vault write myca_ops/intermediate/generate/internal \
-> common_name="My CA Ops Intermediate CA" \
-> ttl=26280h \
-> key_bits=4096 \
-> exclude_cn_from_sans=true
+${VAULT} write ${INTERMEDIATE_CA_PATH}/intermediate/generate/internal \
+ common_name="${INTERMEDIATE_CA_CN}" \
+ ttl=26280h \
+ key_bits=4096 \
+ exclude_cn_from_sans=true
+#Make sure to copy CSR text into file (myca_intermediate_ca.csr for this example)
 
-OR curl -k -X POST -H "x-Vault-Token: ${VAULT_TOKEN}" -d '{"common_name": "My CA Ops Intermediate CA", "ttl": "26280h", "key_bits": "4096", "exclude_cn_from_sans": "true"}' ${VAULT_ADDR}/v1/myca_ops/intermediate/generate/internal | tee >(jq -r .data.csr > myca_intermediate_ca.csr)
+#OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d '{"common_name": "${INTERMEDIATE_CA_CN}", "ttl": "26280h", "key_bits": "4096", "exclude_cn_from_sans": "true"}' ${VAULT_ADDR}/v1/${INTERMEDIATE_CA_PATH}/intermediate/generate/internal | tee >(jq -r .data.csr > myca_intermediate_ca.csr)
 
-./vault write myca/root/sign-intermediate \
-> csr=@myca_intermediate_ca.csr \
-> common_name="My CA Ops Intermediate CA" \
-> ttl=8760h
+${VAULT} write ${ROOT_CA_PATH}/root/sign-intermediate \
+ csr=@myca_intermediate_ca.csr \
+ common_name="${INTERMEDIATE_CA_CN}" \
+ ttl=8760h
+#Make sure to copy cert text into file (myca_intermediate_ca.crt for this example)
 
-OR curl -k -X POST -H "x-Vault-Token: ${VAULT_TOKEN}" -d @<(jq -n --arg a "$(<myca_intermediate_ca.csr)" '{"csr": $a, "common_name": "My CA Ops Intermediate CA", "ttl": "8760h", "key_bits": "4096"}') ${VAULT_ADDR}/v1/myca/root/sign-intermediate | tee >(jq -r .data.certificate > myca_intermediate_ca.crt)
+#OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d @<(jq -n --arg a "$(<myca_intermediate_ca.csr)" '{"csr": $a, "common_name": "${INTERMEDIATE_CA_CN}", "ttl": "8760h", "key_bits": "4096"}') ${VAULT_ADDR}/v1/${ROOT_CA_PATH}/root/sign-intermediate | tee >(jq -r .data.certificate > myca_intermediate_ca.crt)
 
 #That spits out the certificate... need to write it into place.
-curl -k -X POST -H "x-Vault-Token: ${VAULT_TOKEN}" -d @<(jq -n --arg a "$(<myca_intermediate_ca.crt)" '{"certificate": $a}') ${VAULT_ADDR}/v1/myca_ops/intermediate/set-signed
+${VAULT} write ${INTERMEDIATE_CA_PATH}/intermediate/set-signed certificate=@myca_intermediate_ca.crt
+
+#OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d @<(jq -n --arg a "$(<myca_intermediate_ca.crt)" '{"certificate": $a}') ${VAULT_ADDR}/v1/${INTERMEDIATE_CA_PATH}/intermediate/set-signed
 
 #Create role (template?) for certificates
-vault write myca_ops/roles/web_server \
-key_bits=2048 \
-max_ttl=8760h \
-allow_any_name=true
+${VAULT} write ${INTERMEDIATE_CA_PATH}/roles/web_server \
+  key_bits=2048 \
+  max_ttl=8760h \
+  allow_any_name=true
 
-OR curl -k -X POST -H "x-Vault-Token: ${VAULT_TOKEN}" -d '{"allow_any_name": "true", "allow_ip_sans": "true", "max_ttl": "8760h", "key_bits": "2048"}' ${VAULT_ADDR}/v1/myca_ops/roles/web_server
+#OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d '{"allow_any_name": "true", "allow_ip_sans": "true", "max_ttl": "8760h", "key_bits": "2048"}' ${VAULT_ADDR}/v1/${INTERMEDIATE_CA_PATH}/roles/web_server
 
 #Issue cert - 30 days?
-vault write myca_ops/issue/web_server \
-common_name='www.example.com' \
-ip_sans='1.2.3.4' \
-ttl=720h \
-format=pem
+${VAULT} write ${INTERMEDIATE_CA_PATH}/issue/web_server \
+  common_name='www.example.com' \
+  ip_sans='1.2.3.4' \
+  ttl=720h \
+  format=pem
 
-OR curl -H "X-Vault-Token: ${VAULT_TOKEN}"   -d '{ "common_name": "www.example.com" }' \
-${VAULT_ADDR}/v1/myca_ops/issue/web_server \
-| tee \
->(jq -r .data.certificate > www.example.com.cert) \
->(jq -r .data.private_key > www.example.com.pem) \
->(jq -r .data.ca_chain[] > www.example.com-chained.pem)
+#OR
+curl -H "X-Vault-Token: ${VAULT_TOKEN}"   -d '{ "common_name": "www.example.com" }' \
+${VAULT_ADDR}/v1/${INTERMEDIATE_CA_PATH}/issue/web_server \
+  | tee \
+  >(jq -r .data.certificate > www.example.com.cert) \
+  >(jq -r .data.private_key > www.example.com.pem) \
+  >(jq -r .data.ca_chain[] > www.example.com-chained.pem)
 
-OR if you have a CSR from someone (haven't tested this)
-curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d @<(jq -n --arg a "www.example.com" --arg b "$(<server.csr)" '{ common_name: $a, csr: $b }') ${VAULT_ADDR}/v1/myca_ops/sign/example-dot-com \
-| tee \
->(jq -r .data.certificate > www.example.com.cert) \
->(jq -r .data.ca_chain[] > www.example.com-chained.pem)
+#OR if you have a CSR from someone (haven't tested this)
+curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d @<(jq -n --arg a "www.example.com" --arg b "$(<server.csr)" '{ common_name: $a, csr: $b }') ${VAULT_ADDR}/v1/${INTERMEDIATE_CA_PATH}/sign/example-dot-com \
+  | tee \
+  >(jq -r .data.certificate > www.example.com.cert) \
+  >(jq -r .data.ca_chain[] > www.example.com-chained.pem)
 

@@ -71,20 +71,21 @@ ${VAULT} mounts
 #OR curl -k -X GET -H "X-Vault-Token: ${VAULT_TOKEN}" ${VAULT_ADDR}/v1/sys/mounts|jq .
 
 # Generate CSR
-${VAULT} write ${INTERMEDIATE_CA_PATH}/intermediate/generate/internal \
+${VAULT} write -format=json \
+ ${INTERMEDIATE_CA_PATH}/intermediate/generate/internal \
  common_name="${INTERMEDIATE_CA_CN}" \
  ttl=26280h \
  key_bits=4096 \
- exclude_cn_from_sans=true
-#Make sure to copy CSR text into file (myca_intermediate_ca.csr for this example)
+ exclude_cn_from_sans=true \
+| jq -r .data.csr > myca_intermediate_ca.csr
 
 #OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d '{"common_name": "${INTERMEDIATE_CA_CN}", "ttl": "26280h", "key_bits": "4096", "exclude_cn_from_sans": "true"}' ${VAULT_ADDR}/v1/${INTERMEDIATE_CA_PATH}/intermediate/generate/internal | tee >(jq -r .data.csr > myca_intermediate_ca.csr)
 
-${VAULT} write ${ROOT_CA_PATH}/root/sign-intermediate \
+${VAULT} write -format=json ${ROOT_CA_PATH}/root/sign-intermediate \
  csr=@myca_intermediate_ca.csr \
  common_name="${INTERMEDIATE_CA_CN}" \
- ttl=8760h
-#Make sure to copy cert text into file (myca_intermediate_ca.crt for this example)
+ ttl=8760h \
+| jq -r .data.certificate > myca_intermediate_ca.crt
 
 #OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d @<(jq -n --arg a "$(<myca_intermediate_ca.csr)" '{"csr": $a, "common_name": "${INTERMEDIATE_CA_CN}", "ttl": "8760h", "key_bits": "4096"}') ${VAULT_ADDR}/v1/${ROOT_CA_PATH}/root/sign-intermediate | tee >(jq -r .data.certificate > myca_intermediate_ca.crt)
 

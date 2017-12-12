@@ -26,7 +26,7 @@ ${VAULT} server -dev > vault-info.txt &
 #${VAULT} server -config=vault.hcl
 #${VAULT} init -key-shares=1 -key-threshold=1
 
-${VAULT} auth
+#${VAULT} auth
 #OR export VAULT_TOKEN=62fd6843-0156-fd86-e6fe-2b292f8c9270
 
 export VAULT_ADDR='http://127.0.0.1:8200'

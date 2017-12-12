@@ -28,6 +28,7 @@ ${VAULT} server -dev > vault-info.txt &
 
 #${VAULT} auth
 #OR export VAULT_TOKEN=62fd6843-0156-fd86-e6fe-2b292f8c9270
+export VAULT_TOKEN=`grep "Root Token" vault-info.txt | awk -F": " '{print $2}'`
 
 export VAULT_ADDR='http://127.0.0.1:8200'
 

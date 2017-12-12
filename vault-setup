@@ -23,6 +23,10 @@ cd cavault
 
 ${VAULT} server -dev > vault-info.txt &
 # -dev creates an unsealed, in memory vault
+
+#Sleep for a couple of seconds to let server start up
+sleep 2
+
 #${VAULT} server -config=vault.hcl
 #${VAULT} init -key-shares=1 -key-threshold=1
 

@@ -22,8 +22,15 @@ echo 1000 > root/serial
 #---------------
 
 #openssl genrsa -aes256 -out root/private/ca.key.pem 4096
-openssl genpkey -algorithm RSA -aes256 -pkeyopt rsa_keygen_bits:4096 \
-  -out root/private/ca.key.pem
+#openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out root/private/ca.key.pem
+# OR NON-RSA?
+# This one embeds param info in key, and won't generate a proper cert
+# openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:secp521r1 -out root/private/ca.key.pem
+# This one does it "right", but does a pipe for some silly reason
+# openssl ecparam -genkey -name secp384r1 | openssl ec -out root/private/ca.key.pem
+# This seems to be the most straightforward way
+ openssl ecparam -name secp521r1 -genkey -noout -out root/private/ca.key.pem
+
 chmod 400 root/private/ca.key.pem
 
 #Create root certificate
@@ -74,8 +81,9 @@ echo 1000 > intermediate/crlnumber
 #-----------------------
 
 #openssl genrsa -aes256 -out intermediate/private/intermediate.key.pem 4096
-openssl genpkey -algorithm RSA -aes256 -pkeyopt rsa_keygen_bits:4096 \
-  -out intermediate/private/intermediate.key.pem
+#openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 \
+#  -out intermediate/private/intermediate.key.pem
+openssl ecparam -name secp521r1 -genkey -noout -out intermediate/private/intermediate.key.pem
 chmod 400 intermediate/private/intermediate.key.pem
 
 #Create intermediate certificate
@@ -165,8 +173,9 @@ openssl x509 -noout -text -in intermediate/certs/intermediate.cert.pem
 #----------
 
 #    openssl genrsa -out intermediate/private/www.example.com.key.pem 2048
-openssl genpkey -algorithm RSA -aes256 -pkeyopt rsa_keygen_bits:2048 \
-  -out intermediate/private/www.example.com.key.pem
+#openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+#  -out intermediate/private/www.example.com.key.pem
+openssl ecparam -name secp384r1 -genkey -noout -out intermediate/private/www.example.com.key.pem
     chmod 400 intermediate/private/www.example.com.key.pem
 
 #Create CSR

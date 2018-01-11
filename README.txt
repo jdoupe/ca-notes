@@ -29,7 +29,12 @@ echo 1000 > root/serial
 # This one does it "right", but does a pipe for some silly reason
 # openssl ecparam -genkey -name secp384r1 | openssl ec -out root/private/ca.key.pem
 # This seems to be the most straightforward way
- openssl ecparam -name secp521r1 -genkey -noout -out root/private/ca.key.pem
+# openssl ecparam -name secp521r1 -genkey -noout -out root/private/ca.key.pem
+# I've now found the "right" way (using "genpkey"), thanks to some hints from https://gist.github.com/briansmith/2ee42439923d8e65a266994d0f70180b
+openssl genpkey -algorithm EC \
+    -pkeyopt ec_paramgen_curve:secp521r1 \
+    -pkeyopt ec_param_enc:named_curve \
+    -out root/private/ca.key.pem
 
 chmod 400 root/private/ca.key.pem
 

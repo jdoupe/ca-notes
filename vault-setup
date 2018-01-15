@@ -57,6 +57,11 @@ ${VAULT} write ${ROOT_CA_PATH}/root/generate/internal \
  key_bits=4096 \
  exclude_cn_from_sans=true
 
+# Add `key_type=ec` to create EC key, key_bits then needs to be 224,256,384, or 521 
+# likely corresponding to ???, prime256v1, secp384r1, and secp521r1 respectively
+# https://golang.org/pkg/crypto/elliptic/#Curve
+# (note: 224 may or may not be supported by your libssl)
+
 #OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d '{"common_name": "${ROOT_CA_CN}", "ttl": "87600h", "key_bits": "4096", "exclude_cn_from_sans": "true"}' ${VAULT_ADDR}/v1/${ROOT_CA_PATH}/root/generate/internal
 
 #Take a look
@@ -103,6 +108,13 @@ ${VAULT} write ${INTERMEDIATE_CA_PATH}/roles/web_server \
   key_bits=2048 \
   max_ttl=8760h \
   allow_any_name=true
+
+###*** Can we use key_type other than rsa?
+# Add `key_type=ec` to create EC key, key_bits then needs to be 224,256,384, or 521 
+# likely corresponding to ???, prime256v1, secp384r1, and secp521r1 respectively
+# https://golang.org/pkg/crypto/elliptic/#Curve
+# (note: 224 may or may not be supported by your libssl)
+
 
 #OR curl -k -X POST -H "X-Vault-Token: ${VAULT_TOKEN}" -d '{"allow_any_name": "true", "allow_ip_sans": "true", "max_ttl": "8760h", "key_bits": "2048"}' ${VAULT_ADDR}/v1/${INTERMEDIATE_CA_PATH}/roles/web_server
 

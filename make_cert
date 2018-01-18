@@ -56,11 +56,11 @@ chmod 400 $INTCADIR/private/${HOSTNAME}.key.pem
           serial            = $INTCADIR/serial
           RANDFILE          = $INTCADIR/private/.rand
 
-          private_key       = $INTCADIR/private/ca.key.pem
-          certificate       = $INTCADIR/certs/ca.cert.pem
+          private_key       = $INTCADIR/private/$INTCADIR.key.pem
+          certificate       = $INTCADIR/certs/$INTCADIR.cert.pem
 
           crlnumber         = $INTCADIR/crlnumber
-          crl               = $INTCADIR/crl/ca.crl.pem
+          crl               = $INTCADIR/crl/$INTCADIR.crl.pem
           crl_extensions    = crl_ext
           default_crl_days  = 30
 

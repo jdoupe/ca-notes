@@ -11,8 +11,8 @@ INTCADIR=$2
         -days 3650 \
         -notext \
         -md sha256 \
-        -in $SRCCADIR/csr/ca.csr.pem \
-        -out $SRCCADIR/certs/ca-$INTCADIR.cert.pem \
+        -in $SRCCADIR/csr/$SRCCADIR.csr.pem \
+        -out $SRCCADIR/certs/$SRCCADIR-$INTCADIR.cert.pem \
         -config <(printf "
           [ ca ]
           default_ca = CA_default
@@ -26,11 +26,11 @@ INTCADIR=$2
           serial            = $INTCADIR/serial
           RANDFILE          = $INTCADIR/private/.rand
 
-          private_key       = $INTCADIR/private/ca.key.pem
-          certificate       = $INTCADIR/certs/ca.cert.pem
+          private_key       = $INTCADIR/private/$INTCADIR.key.pem
+          certificate       = $INTCADIR/certs/$INTCADIR.cert.pem
 
           crlnumber         = $INTCADIR/crlnumber
-          crl               = $INTCADIR/crl/ca.crl.pem
+          crl               = $INTCADIR/crl/$INTCADIR.crl.pem
           crl_extensions    = crl_ext
           default_crl_days  = 30
 
@@ -57,7 +57,7 @@ INTCADIR=$2
           keyUsage = critical, digitalSignature, cRLSign, keyCertSign
         ") 
 
-    chmod 444 $SRCCADIR/certs/ca-$INTCADIR.cert.pem
+    chmod 444 $SRCCADIR/certs/$SRCCADIR-$INTCADIR.cert.pem
 
 # Consider keyAgreement and nonRepudiation as keyUsage additions?
 

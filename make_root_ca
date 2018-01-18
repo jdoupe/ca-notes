@@ -8,13 +8,13 @@ chmod 700 $ROOTDIR/private
 touch $ROOTDIR/index.txt
 echo 1000 > $ROOTDIR/serial
 
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out $ROOTDIR/private/ca.key.pem
-chmod 400 $ROOTDIR/private/ca.key.pem
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out $ROOTDIR/private/$ROOTDIR.key.pem
+chmod 400 $ROOTDIR/private/$ROOTDIR.key.pem
 
 openssl req \
-  -key $ROOTDIR/private/ca.key.pem \
+  -key $ROOTDIR/private/$ROOTDIR.key.pem \
   -new -x509 -days 7300 -sha256 -extensions v3_ca \
-  -out $ROOTDIR/certs/ca.cert.pem \
+  -out $ROOTDIR/certs/$ROOTDIR.cert.pem \
   -subj "/C=US/ST=Texas/O=Test Org/CN=$ROOTDIR" \
   -config <(printf "
     [ req ]
@@ -30,5 +30,5 @@ openssl req \
     keyUsage = critical, digitalSignature, cRLSign, keyCertSign
   ")
 
-chmod 444 $ROOTDIR/certs/ca.cert.pem
+chmod 444 $ROOTDIR/certs/$ROOTDIR.cert.pem
 

@@ -1,0 +1,96 @@
+#!/bin/bash
+
+HOSTNAME=$1
+INTCADIR=$2
+
+#Create key
+#----------
+
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+  -out $INTCADIR/private/${HOSTNAME}.key.pem
+
+chmod 400 $INTCADIR/private/${HOSTNAME}.key.pem
+
+#Create CSR
+#----------
+
+    openssl req -new \
+        -key $INTCADIR/private/${HOSTNAME}.key.pem \
+        -subj "/C=US/ST=Texas/O=Test Org/OU=Development/CN=${HOSTNAME}" \
+        -out $INTCADIR/csr/${HOSTNAME}.csr.pem \
+        -config <(printf "
+          [ req ]
+          string_mask = utf8only
+          distinguished_name  = req_distinguished_name
+
+          [ req_distinguished_name ]
+        ")
+
+#Sign CSR / Create Cert
+#----------------------
+# Note this config section specifies the file/path locations for the
+# intermediate CA which should be used to sign any issued certificates.
+# You'll also want to note that subjectAltName for the certificate is
+# defined in the [SAN] section.  Instead of having this huge config
+# specified on the command line, it may be worthwhile to move all but
+# [SAN] section to an actual file (intermediate-ca.cnf), and wrap the
+# printf with something like <(cat intermediate-ca.cnf <(printf ... ))
+
+    openssl ca \
+        -extensions SAN \
+        -days 375 \
+        -notext \
+        -md sha256 \
+        -in $INTCADIR/csr/${HOSTNAME}.csr.pem \
+        -out $INTCADIR/certs/${HOSTNAME}.cert.pem \
+        -config <(printf "
+          [ ca ]
+          default_ca = CA_default
+
+          [ CA_default ]
+          dir               = intermediate
+          certs             = $INTCADIR/certs
+          crl_dir           = $INTCADIR/crl
+          new_certs_dir     = $INTCADIR/newcerts
+          database          = $INTCADIR/index.txt
+          serial            = $INTCADIR/serial
+          RANDFILE          = $INTCADIR/private/.rand
+
+          private_key       = $INTCADIR/private/ca.key.pem
+          certificate       = $INTCADIR/certs/ca.cert.pem
+
+          crlnumber         = $INTCADIR/crlnumber
+          crl               = $INTCADIR/crl/ca.crl.pem
+          crl_extensions    = crl_ext
+          default_crl_days  = 30
+
+          name_opt          = ca_default
+          cert_opt          = ca_default
+          preserve          = no
+          policy            = policy_loose
+
+          [ policy_loose ]
+          countryName             = optional
+          stateOrProvinceName     = optional
+          localityName            = optional
+          organizationName        = optional
+          organizationalUnitName  = optional
+          commonName              = supplied
+          emailAddress            = optional
+
+          [ crl_ext ]
+          authorityKeyIdentifier=keyid:always
+
+          [SAN]
+          basicConstraints=CA:FALSE
+          subjectKeyIdentifier=hash
+          authorityKeyIdentifier=keyid,issuer:always
+          keyUsage=critical,digitalSignature,keyEncipherment
+          extendedKeyUsage=serverAuth
+          subjectAltName=DNS:${HOSTNAME}
+        ") 
+
+    chmod 444 $INTCADIR/certs/${HOSTNAME}.cert.pem
+
+# Consider keyAgreement and nonRepudiation as keyUsage additions?
+

@@ -1,0 +1,63 @@
+#!/bin/bash
+
+SRCCADIR=$1
+INTCADIR=$2
+
+#Sign CSR / Create Cert
+#----------------------
+
+    openssl ca \
+        -extensions v3_intermediate_ca \
+        -days 3650 \
+        -notext \
+        -md sha256 \
+        -in $SRCCADIR/csr/ca.csr.pem \
+        -out $SRCCADIR/certs/ca-$INTCADIR.cert.pem \
+        -config <(printf "
+          [ ca ]
+          default_ca = CA_default
+
+          [ CA_default ]
+          dir               = intermediate
+          certs             = $INTCADIR/certs
+          crl_dir           = $INTCADIR/crl
+          new_certs_dir     = $INTCADIR/newcerts
+          database          = $INTCADIR/index.txt
+          serial            = $INTCADIR/serial
+          RANDFILE          = $INTCADIR/private/.rand
+
+          private_key       = $INTCADIR/private/ca.key.pem
+          certificate       = $INTCADIR/certs/ca.cert.pem
+
+          crlnumber         = $INTCADIR/crlnumber
+          crl               = $INTCADIR/crl/ca.crl.pem
+          crl_extensions    = crl_ext
+          default_crl_days  = 30
+
+          name_opt          = ca_default
+          cert_opt          = ca_default
+          preserve          = no
+          policy            = policy_strict
+
+          [ policy_strict ]
+          countryName             = match
+          stateOrProvinceName     = match
+          organizationName        = match
+          organizationalUnitName  = optional
+          commonName              = supplied
+          emailAddress            = optional
+
+          [ crl_ext ]
+          authorityKeyIdentifier=keyid:always
+
+          [ v3_intermediate_ca ]
+          subjectKeyIdentifier = hash
+          authorityKeyIdentifier = keyid:always,issuer
+          basicConstraints = critical, CA:true, pathlen:0
+          keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+        ") 
+
+    chmod 444 $SRCCADIR/certs/ca-$INTCADIR.cert.pem
+
+# Consider keyAgreement and nonRepudiation as keyUsage additions?
+

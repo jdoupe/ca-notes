@@ -1,0 +1,34 @@
+#!/bin/bash
+
+ROOTDIR=$1
+
+# Set up directory structure and pertinent files
+mkdir -p $ROOTDIR/certs $ROOTDIR/crl $ROOTDIR/newcerts $ROOTDIR/private
+chmod 700 $ROOTDIR/private
+touch $ROOTDIR/index.txt
+echo 1000 > $ROOTDIR/serial
+
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out $ROOTDIR/private/ca.key.pem
+chmod 400 $ROOTDIR/private/ca.key.pem
+
+openssl req \
+  -key $ROOTDIR/private/ca.key.pem \
+  -new -x509 -days 7300 -sha256 -extensions v3_ca \
+  -out $ROOTDIR/certs/ca.cert.pem \
+  -subj "/C=US/ST=Texas/O=Test Org/CN=$ROOTDIR" \
+  -config <(printf "
+    [ req ]
+    distinguished_name  = req_distinguished_name
+    x509_extensions = v3_ca
+
+    [ req_distinguished_name ]
+
+    [ v3_ca ]
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid:always,issuer
+    basicConstraints = critical, CA:true
+    keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+  ")
+
+chmod 444 $ROOTDIR/certs/ca.cert.pem
+

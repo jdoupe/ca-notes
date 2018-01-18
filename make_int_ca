@@ -1,0 +1,78 @@
+#!/bin/bash
+
+INTCADIR=$1
+ROOTDIR=$2
+
+# Set up directory structure and pertinent files
+mkdir -p $INTCADIR/certs $INTCADIR/crl $INTCADIR/csr $INTCADIR/newcerts $INTCADIR/private
+chmod 700 $INTCADIR/private
+touch $INTCADIR/index.txt
+echo 1000 > $INTCADIR/serial
+echo 1000 > $INTCADIR/crlnumber
+
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out $INTCADIR/private/ca.key.pem
+chmod 400 $INTCADIR/private/ca.key.pem
+
+openssl req -new -sha256 \
+  -key $INTCADIR/private/ca.key.pem \
+  -out $INTCADIR/csr/ca.csr.pem \
+  -subj "/C=US/ST=Texas/O=Test Org/CN=$INTCADIR" \
+  -config <(printf "
+    [ req ]
+    distinguished_name  = req_distinguished_name
+
+    [ req_distinguished_name ]
+
+  ")
+
+openssl ca -extensions v3_intermediate_ca \
+  -days 3650 -notext -md sha256 \
+  -in $INTCADIR/csr/ca.csr.pem \
+  -out $INTCADIR/certs/ca.cert.pem \
+  -config <(printf "
+    [ ca ]
+    default_ca = CA_default
+
+    [ CA_default ]
+    dir               = root
+    certs             = $ROOTDIR/certs
+    crl_dir           = $ROOTDIR/crl
+    new_certs_dir     = $ROOTDIR/newcerts
+    database          = $ROOTDIR/index.txt
+    serial            = $ROOTDIR/serial
+    RANDFILE          = $ROOTDIR/private/.rand
+
+    private_key       = $ROOTDIR/private/ca.key.pem
+    certificate       = $ROOTDIR/certs/ca.cert.pem
+
+    crlnumber         = $ROOTDIR/crlnumber
+    crl               = $ROOTDIR/crl/ca.crl.pem
+    crl_extensions    = crl_ext
+    default_crl_days  = 30
+
+    name_opt          = ca_default
+    cert_opt          = ca_default
+    default_days      = 375
+    preserve          = no
+    policy            = policy_strict
+
+    [ policy_strict ]
+    countryName             = match
+    stateOrProvinceName     = match
+    organizationName        = match
+    organizationalUnitName  = optional
+    commonName              = supplied
+    emailAddress            = optional
+
+    [ crl_ext ]
+    authorityKeyIdentifier=keyid:always
+
+    [ v3_intermediate_ca ]
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid:always,issuer
+    basicConstraints = critical, CA:true, pathlen:0
+    keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+  ")
+
+chmod 444 $INTCADIR/certs/ca.cert.pem
+

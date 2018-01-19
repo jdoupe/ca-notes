@@ -1,5 +1,5 @@
 
-VAULT=../vault
+VAULT=../../../vault
 ROOT_CA_PATH=myca
 ROOT_CA_CN='My Root CA'
 INTERMEDIATE_CA_PATH=myca_ops
@@ -38,6 +38,11 @@ export VAULT_ADDR='http://127.0.0.1:8200'
 
 ${VAULT} status
 curl -k -X GET ${VAULT_ADDR}/v1/sys/health
+
+# What permissions do you need in order to create a pki, configure it, maintain, and operate it?
+# Root token obviously has all the necessary permissions, but it would likely be a good idea to
+# restrict access, at least after initial set up.  I believe a new root token can be created
+# using the seal keys. ***Should verify***
 
 #Create Root CA
 #Mount it

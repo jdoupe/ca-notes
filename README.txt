@@ -9,4 +9,7 @@
 #https://blog.kintoandar.com/2015/11/vault-PKI-made-easy.html
 #https://www.vaultproject.io/docs/index.html
 
+# Other project to look at
+https://github.com/smallstep/cli
+https://github.com/FiloSottile/mkcert
 

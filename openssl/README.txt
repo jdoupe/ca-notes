@@ -96,8 +96,8 @@ echo 1000 > intermediate/crlnumber
 openssl genpkey -algorithm EC \
     -pkeyopt ec_paramgen_curve:secp521r1 \
     -pkeyopt ec_param_enc:named_curve \
-    -out intermediate/private/ca.key.pem
-chmod 400 intermediate/private/intermediate.key.pem
+    -out intermediate/private/intermediate-ca.key.pem
+chmod 400 intermediate/private/intermediate-ca.key.pem
 
 #Create intermediate certificate
 #-------------------------------
@@ -109,8 +109,8 @@ chmod 400 intermediate/private/intermediate.key.pem
 # for the root CA.
 
 openssl req -new -sha256 \
-  -key intermediate/private/intermediate.key.pem \
-  -out intermediate/csr/intermediate.csr.pem \
+  -key intermediate/private/intermediate-ca.key.pem \
+  -out intermediate/csr/intermediate-ca.csr.pem \
   -subj "/C=US/ST=Texas/O=Test Org/CN=Test Org Intermediate CA" \
   -config <(printf "
     [ req ]
@@ -128,8 +128,8 @@ openssl req -new -sha256 \
 
 openssl ca -extensions v3_intermediate_ca \
   -days 3650 -notext -md sha256 \
-  -in intermediate/csr/intermediate.csr.pem \
-  -out intermediate/certs/intermediate.cert.pem \
+  -in intermediate/csr/intermediate-ca.csr.pem \
+  -out intermediate/certs/intermediate-ca.cert.pem \
   -config <(printf "
     [ ca ]
     default_ca = CA_default
@@ -175,12 +175,12 @@ openssl ca -extensions v3_intermediate_ca \
     keyUsage = critical, digitalSignature, cRLSign, keyCertSign
   ")
 
-chmod 444 intermediate/certs/intermediate.cert.pem
+chmod 444 intermediate/certs/intermediate-ca.cert.pem
 
 #Verify intermediate certificate
 #-------------------------------
 
-openssl x509 -noout -text -in intermediate/certs/intermediate.cert.pem
+openssl x509 -noout -text -in intermediate/certs/intermediate-ca.cert.pem
 
 #Create key
 #----------
@@ -241,11 +241,11 @@ openssl genpkey -algorithm EC \
           serial            = intermediate/serial
           RANDFILE          = intermediate/private/.rand
 
-          private_key       = intermediate/private/intermediate.key.pem
-          certificate       = intermediate/certs/intermediate.cert.pem
+          private_key       = intermediate/private/intermediate-ca.key.pem
+          certificate       = intermediate/certs/intermediate-ca.cert.pem
 
           crlnumber         = intermediate/crlnumber
-          crl               = intermediate/crl/intermediate.crl.pem
+          crl               = intermediate/crl/intermediate-ca.crl.pem
           crl_extensions    = crl_ext
           default_crl_days  = 30
 
@@ -286,7 +286,7 @@ openssl genpkey -algorithm EC \
         -in intermediate/certs/www.example.com.cert.pem
 
     # Create CA chain
-    cat intermediate/certs/intermediate.cert.pem root/certs/ca.cert.pem > intermediate/certs/ca-chain.cert.pem
+    cat intermediate/certs/intermediate-ca.cert.pem root/certs/ca.cert.pem > intermediate/certs/ca-chain.cert.pem
 
     openssl verify -CAfile intermediate/certs/ca-chain.cert.pem \
         intermediate/certs/www.example.com.cert.pem
